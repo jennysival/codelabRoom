@@ -1,4 +1,4 @@
-package br.com.zup.roomwordsample
+package br.com.zup.roomwordsample.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
