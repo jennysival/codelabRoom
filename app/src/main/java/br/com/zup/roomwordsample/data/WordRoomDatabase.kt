@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 // Annotates class to be a Room Database with a table (entity) of the Word class
 
@@ -20,6 +23,33 @@ public abstract class WordRoomDatabase : RoomDatabase() {
 
     abstract fun wordDao(): WordDAO
 
+    private class WordDatabaseCallback(
+        private val scope: CoroutineScope
+    ) : RoomDatabase.Callback() {
+
+        override fun onCreate(db: SupportSQLiteDatabase) {
+            super.onCreate(db)
+            INSTANCE?.let { database ->
+                scope.launch {
+                    populateDatabase(database.wordDao())
+                }
+            }
+        }
+
+        suspend fun populateDatabase(wordDao: WordDAO) {
+            // Delete all content here.
+            wordDao.deleteAll()
+
+            // Add sample words.
+            var word = Word("Hello")
+            wordDao.insert(word)
+            word = Word("World!")
+            wordDao.insert(word)
+
+            // TODO: Add your own words!
+        }
+    }
+
     companion object {
         // Singleton prevents multiple instances of database opening at the
         // same time.
@@ -32,7 +62,7 @@ public abstract class WordRoomDatabase : RoomDatabase() {
         // acessado, usando o builder do banco de dados da Room para criar um objeto RoomDatabase
         // no contexto do aplicativo da classe WordRoomDatabase e o nomeará como "word_database"
 
-        fun getDatabase(context: Context): WordRoomDatabase {
+        fun getDatabase(context: Context, scope: CoroutineScope): WordRoomDatabase {
             // if the INSTANCE is not null, then return it,
             // if it is, then create the database
             return INSTANCE ?: synchronized(this) {
@@ -40,11 +70,15 @@ public abstract class WordRoomDatabase : RoomDatabase() {
                     context.applicationContext,
                     WordRoomDatabase::class.java,
                     "word_database"
-                ).build()
+                ).addCallback(WordDatabaseCallback(scope)).build()
                 INSTANCE = instance
                 // return instance
                 instance
             }
         }
+    //O preenchimento do banco de dados não está relacionado ao ciclo de vida da IU. Portanto,
+    // não use um CoroutineScope como o viewModelScope, porque ele está relacionado ao ciclo de vida
+    // do app. Você atualizará o WordsApplication para conter um applicationScope e, depois,
+    // transmitir esse valor para o WordRoomDatabase.getDatabase
     }
 }
